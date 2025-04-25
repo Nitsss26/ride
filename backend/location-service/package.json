@@ -1,0 +1,20 @@
+{
+  "name": "location-service",
+  "version": "1.0.0",
+  "description": "Handles real-time driver location updates for RideVerse",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.16.0",
+    "redis": "^4.6.13",
+    "mongoose": "^8.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
