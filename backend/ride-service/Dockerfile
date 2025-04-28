@@ -10,7 +10,7 @@ COPY package*.json ./
 # Install app dependencies
 # Use 'npm ci' for faster, more reliable installs in CI/CD environments
 # Use 'npm install' for local development builds if needed
-RUN npm ci --only=production
+RUN npm install
 
 # Bundle app source
 COPY . .

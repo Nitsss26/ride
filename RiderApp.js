@@ -22,7 +22,7 @@ import * as Location from 'expo-location';
 // Use placeholder IPs/domains. Replace with your actual backend IP/domain accessible from your emulator/device.
 // If using Docker on localhost: Use host machine's IP or a tunnel service like ngrok.
 // If using Expo Go on physical device: Ensure backend is accessible on the same network.
-const BASE_URL = 'http://YOUR_BACKEND_IP_OR_DOMAIN'; // <-- IMPORTANT: REPLACE THIS
+const BASE_URL = 'http://82.29.164.244'; // <-- IMPORTANT: REPLACE THIS
 const RIDE_SERVICE_URL = `${BASE_URL}:3000`;
 const PAYMENT_SERVICE_URL = `${BASE_URL}:3004`;
 const NOTIFICATION_WS_URL = `ws://${BASE_URL.split('//')[1]}:3002`; // Extract host for WS

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const { connectRedis, getRedisClient } = require('./redisClient');
 const { connectKafkaProducer, getKafkaProducer, connectKafkaConsumer, setupRideServiceConsumer } = require('./kafkaClient');
 const Ride = require('./models/Ride');
-const fetch = require('node-fetch'); // Using node-fetch v3
+const { getFetch } = require('./fetchHelper');
 
 const app = express();
 app.use(express.json());
@@ -94,6 +94,7 @@ app.post('/rides', async (req, res) => {
             console.warn(`Kafka Producer not connected. Cannot publish ride-requested event for ${rideId}. Simulating Driver Service call.`);
             // Simulate direct call if Kafka isn't available (for basic testing)
             try {
+                 const fetch = await getFetch();
                  await fetch(`${DRIVER_SERVICE_URL}/find-drivers`, {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
@@ -161,8 +162,9 @@ app.put('/rides/:rideId/status', async (req, res) => {
         if (status === 'driver-assigned' || status === 'in-progress' || status === 'completed' || status === 'timed-out' || status === 'cancelled') {
              console.log(`Attempting to notify rider ${updatedRide.riderId} for ride ${rideId} status: ${status}`);
              try {
-                // In a real system, Notification Service would handle this via Kafka/WebSockets
-                // Simulating a direct call for simplicity
+                 const fetch = await getFetch();
+                 // In a real system, Notification Service would handle this via Kafka/WebSockets
+                 // Simulating a direct call for simplicity
                  await fetch(`${NOTIFICATION_SERVICE_URL}/notify/rider/${updatedRide.riderId}`, {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
@@ -224,6 +226,7 @@ app.post('/rides/:rideId/verify-otp', async (req, res) => {
 
              // Simulate notification calls
              try {
+                 const fetch = await getFetch();
                  await fetch(`${NOTIFICATION_SERVICE_URL}/notify/rider/${ride.riderId}`, {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },

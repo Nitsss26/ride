@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const { connectRedis, getRedisClient } = require('./redisClient');
 const { connectKafkaProducer, getKafkaProducer, connectKafkaConsumer, setupDriverServiceConsumer } = require('./kafkaClient');
 const Driver = require('./models/Driver');
-const fetch = require('node-fetch');
+const { getFetch } = require('./fetchHelper');
 
 const app = express();
 app.use(express.json());
@@ -90,16 +90,47 @@ app.post('/find-drivers', async (req, res) => {
         // Using GEOSEARCH (Redis 6.2+) - replace with GEORADIUS if using older Redis
          const searchRadiusKm = process.env.DRIVER_SEARCH_RADIUS_KM || 5; // Search within 5km
          // GEOSEARCH driver-locations BYLONLAT pickupLon pickupLat BYRADIUS searchRadiusKm km WITHCOORD WITHDIST ASC COUNT 10
-         const nearbyDriversResult = await redisClient.sendCommand([
-            'GEOSEARCH',
-            'driver-locations', // The key where driver locations are stored (needs to match Location Service)
-            'BYLONLAT', `${pickupLon}`, `${pickupLat}`,
-            'BYRADIUS', `${searchRadiusKm}`, 'km',
-            'WITHCOORD', // Include coordinates
-            'WITHDIST', // Include distance
-            'ASC', // Order by distance ascending
-            'COUNT', '10' // Limit initial search (can be adjusted)
-         ]);
+//         const nearbyDriversResult = await redisClient.sendCommand([
+//            'GEOSEARCH',
+//            'driver-locations', // The key where driver locations are stored (needs to match Location Service)
+//            'BYLONLAT', `${pickupLon}`, `${pickupLat}`,
+//            'BYRADIUS', `${searchRadiusKm}`, 'km',
+//            'WITHCOORD', // Include coordinates
+//            'WITHDIST', // Include distance
+//            'ASC', // Order by distance ascending
+//            'COUNT', '1' // Limit initial search (can be adjusted)
+//         ]);
+
+
+//// Replace the existing GEOSEARCH command with this fixed version
+//const nearby = await redisClient.geoRadius(
+//  'driver-locations',
+//  pickupLon, 
+//  pickupLat, 
+//  searchRadiusKm, 
+//  'km', 
+//  { 
+//    WITHCOORD: true, 
+//    WITHDIST: true, 
+//    COUNT: 10, 
+//    ASC: true 
+//  }
+//);
+
+
+const nearbyDriversResult = await redisClient.sendCommand([
+  'GEORADIUS',               // command
+  'driver-locations',        // key
+  String(pickupLon),         // e.g. "75.5354237"
+  String(pickupLat),         // e.g. "31.3992422"
+  String(searchRadiusKm),    // e.g. "5"
+  'km',
+  'WITHCOORD',
+  'WITHDIST',
+  'ASC',
+  'COUNT',
+  '10'
+]);
 
          console.log(`Redis GEOSEARCH result for ride ${rideId}:`, nearbyDriversResult);
 
@@ -113,11 +144,17 @@ app.post('/find-drivers', async (req, res) => {
 
         // 2. Filter results to get only driver IDs and distances
          const nearbyDriverIdsWithDistance = nearbyDriversResult.map(result => ({
-            driverId: result[0], // Driver ID is the member name
-            distance: parseFloat(result[1]), // Distance is the second element
-            // Coordinates are in result[2] if needed: [lon, lat]
+           driverId: result[0], // Driver ID is the member name
+           distance: parseFloat(result[1]), // Distance is the second element
+             //Coordinates are in result[2] if needed: [lon, lat]
           }));
 
+
+//  const nearbyDriverIdsWithDistance = nearbyDriversResult.map(result => ({
+//            driverId: "680e91333543b569172619f9", // Driver ID is the member name
+//            distance: parseFloat("3.500"), // Distance is the second element
+//            // Coordinates are in result[2] if needed: [lon, lat]
+//         }));
 
         // 3. Fetch driver details (rating, vehicle, status) from MongoDB for the nearby IDs
         const driverIds = nearbyDriverIdsWithDistance.map(d => d.driverId);
@@ -126,6 +163,43 @@ app.post('/find-drivers', async (req, res) => {
             isOnline: true,
             currentStatus: 'available' // Ensure they are actually available in DB too
         }).select('rating vehicle currentStatus'); // Select necessary fields
+
+
+
+        // 4. Quick hack: Normalize any string-encoded vehicle JSON
+//        const normalizedDrivers = driversFromDb.map(d => {
+//            if (typeof d.vehicle === 'string') {
+//                try {
+//                    return { ...d, vehicle: JSON.parse(d.vehicle) };
+//                } catch (err) {
+//                    console.warn(`Failed to parse vehicle for driver ${d._id}:`, err.message);
+//                    return null;
+//                }
+//            }
+//            return d;
+//        }).filter(Boolean);
+
+        // 5. Combine Redis data with normalized DB data and filter unavailable drivers
+//        let availableDrivers = nearbyDriverIdsWithDistance
+//            .map(redisDriver => {
+//                const dbDriver = normalizedDrivers.find(db => db._id.toString() === redisDriver.driverId);
+//                if (dbDriver) {
+//                    return {
+//                        driverId: redisDriver.driverId,
+//                        distance: redisDriver.distance,
+//                        rating: dbDriver.rating,
+//                        vehicle: dbDriver.vehicle,
+//                       status: dbDriver.currentStatus
+//                    };
+//                }
+//               return null;
+//            })
+//            .filter(driver => driver !== null);
+
+
+
+
+
 
         // 4. Combine Redis location data with DB data and filter unavailable drivers
         const availableDrivers = nearbyDriverIdsWithDistance
@@ -138,12 +212,17 @@ app.post('/find-drivers', async (req, res) => {
                         rating: dbDriver.rating,
                         vehicle: dbDriver.vehicle, // Include vehicle info
                         status: dbDriver.currentStatus // Should be 'available'
-                    };
+                   };
                 }
-                return null; // Driver found in Redis but not available in DB (or DB error)
+               return null; // Driver found in Redis but not available in DB (or DB error)
             })
             .filter(driver => driver !== null); // Remove null entries
 
+
+
+
+
+// 6. Apply vehicleTyle filter
         if (availableDrivers.length === 0) {
             console.log(`No *available* drivers found for ride ${rideId} after DB check.`);
              await publishRideUpdate(rideId, { status: 'no_drivers_found', reason: 'Nearby drivers not available' });
@@ -183,6 +262,7 @@ app.post('/find-drivers', async (req, res) => {
             console.warn(`Kafka Producer not connected. Cannot publish driver-match event for ${rideId}. Simulating Notification Service call.`);
             // Simulate direct call if Kafka isn't available
              try {
+                 const fetch = await getFetch();
                  await fetch(`${NOTIFICATION_SERVICE_URL}/notify/drivers`, { // Endpoint expects batch
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
@@ -309,6 +389,7 @@ async function publishRideUpdate(rideId, updateData) {
         console.warn(`Kafka Producer not connected. Cannot publish ride update for ${rideId}. Simulating Ride Service call.`);
         // Simulate direct call to Ride Service for status update
         try {
+             const fetch = await getFetch();
              await fetch(`${RIDE_SERVICE_URL}/rides/${rideId}/status`, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
@@ -325,7 +406,7 @@ async function publishRideUpdate(rideId, updateData) {
         await producer.send({
             topic: 'ride-updates', // Topic for Ride Service to consume status updates
             messages: [{ key: rideId, value: JSON.stringify({ rideId, ...updateData }) }],
-        });
+        })
         console.log(`Published ride update event for ride ${rideId}:`, updateData);
     } catch (error) {
         console.error(`Failed to publish ride update for ride ${rideId}:`, error);
@@ -341,11 +422,11 @@ app.get('/health', (req, res) => {
         redis: isRedisConnected,
         kafkaProducer: isKafkaProducerConnected,
         kafkaConsumer: isKafkaConsumerConnected
-     });
-});
+     })
+})
 
 // --- Server Start ---
 const PORT = process.env.DRIVER_SERVICE_PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Driver Service listening on port ${PORT}`);
-});
+})

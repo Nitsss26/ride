@@ -13,7 +13,7 @@ const kafka = new Kafka({
 });
 
 const producer = kafka.producer();
-const consumer = kafka.consumer({ groupId: 'notification-service-group' });
+let consumer = kafka.consumer({ groupId: 'notification-service-group' });
 
 let producerConnected = false;
 let consumerConnected = false;

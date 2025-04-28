@@ -20,7 +20,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 // --- Configuration ---
-const BASE_URL = 'http://YOUR_BACKEND_IP_OR_DOMAIN'; // <-- IMPORTANT: REPLACE THIS
+const BASE_URL = 'http://82.29.164.244'; // <-- IMPORTANT: REPLACE THIS
 const DRIVER_SERVICE_URL = `${BASE_URL}:3001`;
 const LOCATION_WS_URL = `ws://${BASE_URL.split('//')[1]}:3003`; // Location Service WebSocket
 const NOTIFICATION_WS_URL = `ws://${BASE_URL.split('//')[1]}:3002`; // Notification Service WebSocket

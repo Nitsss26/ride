@@ -1,6 +1,6 @@
 const { Kafka, logLevel } = require('kafkajs');
 const Ride = require('./models/Ride');
-const fetch = require('node-fetch');
+const { getFetch } = require('./fetchHelper');
 
 const KAFKA_BROKERS = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',');
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3002';
@@ -16,7 +16,7 @@ const kafka = new Kafka({
 });
 
 const producer = kafka.producer();
-const consumer = kafka.consumer({ groupId: 'ride-service-group' }); // Default group
+let consumer = kafka.consumer({ groupId: 'ride-service-group' }); // Default group
 
 let producerConnected = false;
 let consumerConnected = false;
@@ -196,6 +196,9 @@ async function setupRideServiceConsumer() {
                          message: notificationMessage,
                          ride: updatedRide
                      };
+
+                    // Get fetch function from helper
+                    const fetch = await getFetch();
 
                     if (notifyRider && updatedRide.riderId) {
                          try {

@@ -1,11 +1,10 @@
 const { Kafka, logLevel } = require('kafkajs');
-const fetch = require('node-fetch');
+const { getFetch } = require('./fetchHelper');
 
 const KAFKA_BROKERS = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',');
 const DRIVER_SERVICE_URL = process.env.DRIVER_SERVICE_URL || 'http://localhost:3001'; // Self-reference for internal calls
 const RIDE_SERVICE_URL = process.env.RIDE_SERVICE_URL || 'http://localhost:3000';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3002';
-
 
 const kafka = new Kafka({
   clientId: 'driver-service',
@@ -18,7 +17,7 @@ const kafka = new Kafka({
 });
 
 const producer = kafka.producer();
-const consumer = kafka.consumer({ groupId: 'driver-service-group' });
+let consumer = kafka.consumer({ groupId: 'driver-service-group' });
 
 let producerConnected = false;
 let consumerConnected = false;
@@ -126,6 +125,9 @@ async function setupDriverServiceConsumer() {
                              // Trigger driver matching process internally
                              console.log(`Received ride request event for ${rideId}, initiating driver search.`);
                               try {
+                                  // Get fetch function from helper
+                                  const fetch = await getFetch();
+                                  
                                   // Call the internal /find-drivers endpoint
                                   await fetch(`${DRIVER_SERVICE_URL}/find-drivers`, {
                                       method: 'POST',
@@ -146,6 +148,9 @@ async function setupDriverServiceConsumer() {
                              }
                             console.log(`Received payment completion for ride ${rideId}, setting driver ${driverId} to available.`);
                             try {
+                                // Get fetch function from helper
+                                const fetch = await getFetch();
+                                
                                 // Call internal endpoint to update status
                                 await fetch(`${DRIVER_SERVICE_URL}/drivers/${driverId}/status`, {
                                     method: 'PUT',
@@ -162,6 +167,9 @@ async function setupDriverServiceConsumer() {
                             console.log(`Driver batch expired for ride ${rideId}. Re-initiating driver search.`);
                             // Fetch latest ride details before retrying
                             try {
+                                // Get fetch function from helper
+                                const fetch = await getFetch();
+                                
                                 const rideRes = await fetch(`${RIDE_SERVICE_URL}/rides/${rideId}`);
                                 if (rideRes.ok) {
                                      const latestRideDetails = await rideRes.json();

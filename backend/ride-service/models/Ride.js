@@ -16,7 +16,8 @@ const locationSchema = new mongoose.Schema({
 
 const rideSchema = new mongoose.Schema({
   riderId: {
-    type: mongoose.Schema.Types.ObjectId, // Assuming rider IDs are Mongo ObjectIds
+    //type: mongoose.Schema.Types.ObjectId, // Assuming rider IDs are Mongo ObjectIds
+    type:String,
     ref: 'User', // Optional: If you have a User model
     required: true,
   },

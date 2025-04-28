@@ -61,7 +61,7 @@ const driverSchema = new mongoose.Schema({
     type: String // e.g., 'Sedan', 'SUV', 'Bike'
   },
   currentRideId: { // Track the ID of the ride the driver is currently on/assigned to
-     type: mongoose.Schema.Types.ObjectId,
+     type: String,
      ref: 'Ride', // Reference Ride model (conceptually, not a hard link)
      default: null
   },
