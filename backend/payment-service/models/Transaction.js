@@ -1,21 +1,22 @@
+
 const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
   rideId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ride', // Conceptually links to Ride
+//    ref: 'Ride', // Conceptually links to Ride
     required: true,
     index: true
   },
   riderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Conceptually links to User/Rider
+    type: String,
+//    ref: 'User', // Conceptually links to User/Rider
     required: true,
     index: true
   },
   driverId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Driver', // Conceptually links to Driver
+    type: String,
+//    ref: 'Driver', // Conceptually links to Driver
     required: true,
     index: true
   },
