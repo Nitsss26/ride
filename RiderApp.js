@@ -27,8 +27,8 @@ const RIDE_SERVICE_URL = `${BASE_URL}:3000`;
 const PAYMENT_SERVICE_URL = `${BASE_URL}:3004`;
 const NOTIFICATION_WS_URL = `ws://${BASE_URL.split('//')[1]}:3002`; // Extract host for WS
 
-const RIDER_ID = "rider_" + Math.random().toString(36).substring(7); // Simple unique ID for demo
-
+//const RIDER_ID = "rider_" + Math.random().toString(36).substring(7); // Simple unique ID for demo
+const RIDER_ID="507f1f77bcf86cd799439011";
 const THEME = {
     primary: '#FFFFFF', // White
     secondary: '#333333', // Dark Gray
@@ -69,8 +69,8 @@ const apiRequest = async (url, method = 'GET', body = null) => {
 // --- Main App Component ---
 export default function RiderApp() {
     const [currentScreen, setCurrentScreen] = useState('HOME'); // HOME, REQUESTING, WAITING, ON_RIDE, COMPLETED
-    const [pickupLocation, setPickupLocation] = useState({ address: '123 Main St', geo: { coordinates: [-74.0060, 40.7128] } }); // Default NYC
-    const [dropoffLocation, setDropoffLocation] = useState({ address: '456 Market St', geo: { coordinates: [-73.9857, 40.7484] } }); // Default NYC
+    const [pickupLocation, setPickupLocation] = useState({ address: '123 Main St', geo: { coordinates:[74.8662711, 31.6198835] } }); // Default NYC
+    const [dropoffLocation, setDropoffLocation] = useState({ address: '456 Market St', geo: { coordinates: [74.9857, 40.7484] } }); // Default NYC
     const [currentRide, setCurrentRide] = useState(null);
     const [driverLocation, setDriverLocation] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
