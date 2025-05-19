@@ -47,39 +47,6 @@ services:
       timeout: 5s
       retries: 5
 
-#  redis:
-#    image: redis/redis-stack:latest
-#    hostname: redis
-#    container_name: redis
-#    ports:
-#      - "6379:6379"
-#      - "5540:5540"
-#    command: redis-server --notify-keyspace-events Ex
-#    networks:
-#     - rideverse-net
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-
-#redis-stack:
-#  image: redis/redis-stack:latest
-#  container_name: redis-stack
-#  ports:
-#    - "6379:6379"  # Redis server port
-#    - "8001:8001"  # RedisInsight GUI port
-#  networks:
-#    - rideverse-net
-#  healthcheck:
-#    test: ["CMD", "redis-cli", "ping"]
-#    interval: 10s
-#    timeout: 5s
-#    retries: 5
- 
-
-
- # Redis Stack (data + built-in modules)
   redis:
     image: redis:latest
     hostname: redis
@@ -106,23 +73,6 @@ services:
       - redis
     networks:
       - rideverse-net
-
-
-  # Explicit RedisInsight UI (standalone)
-  #redis-insight:
-  #  image: redis/redisinsight:latest
-   # container_name: redis-insight
-   # ports:
-    #  - "8001:8001"   # for RedisInsight v1.x
-    #  - "5540:5540"   # for RedisInsight v2.x+
-    #environment:
-     # - RI_HOST=0.0.0.0
-      #- RI_PORT=8001    # or 5540 if you prefer
-      #- RI_ALLOW_ANONYMOUS=1
-    #depends_on:
-     # - redis
-    #networks:
-     # - rideverse-net
 
   mongo:
     image: mongo:6.0
@@ -184,6 +134,7 @@ services:
       RIDE_SERVICE_MONGODB_URI: mongodb://mongo:27017/ride_service
       DRIVER_SERVICE_URL: http://driver-service:3001
       NOTIFICATION_SERVICE_URL: http://notification-service:3002
+      USER_SERVICE_URL: http://user-service:3006
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
       RIDE_SERVICE_PORT: 3000
@@ -210,6 +161,7 @@ services:
       DRIVER_SERVICE_MONGODB_URI: mongodb://mongo:27017/driver_service
       RIDE_SERVICE_URL: http://ride-service:3000
       NOTIFICATION_SERVICE_URL: http://notification-service:3002
+      USER_SERVICE_URL: http://user-service:3006
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
       DRIVER_SERVICE_PORT: 3001
@@ -222,7 +174,7 @@ services:
       - rideverse-net
     volumes:
       - ./driver-service:/usr/src/app
-      - /usr/src/app/node_modules
+     # - /usr/src/app/node_modules
 
   notification-service:
     build:
@@ -235,6 +187,7 @@ services:
       NOTIFICATION_SERVICE_MONGODB_URI: mongodb://mongo:27017/notification_service
       RIDE_SERVICE_URL: http://ride-service:3000
       DRIVER_SERVICE_URL: http://driver-service:3001
+      USER_SERVICE_URL: http://user-service:3006
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
       NOTIFICATION_SERVICE_PORT: 3002
@@ -291,6 +244,99 @@ services:
     volumes:
       - ./payment-service:/usr/src/app
       - /usr/src/app/node_modules
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "3006:3006"
+    environment:
+      USER_SERVICE_MONGODB_URI: mongodb://mongo:27017/user_service
+      KAFKA_BROKERS: kafka:9092
+      USER_SERVICE_PORT: 3006
+      JWT_SECRET: YourSuperSecretKeyForJWT
+      NODE_OPTIONS: --experimental-modules
+    depends_on:
+      - mongo
+      - kafka
+    networks:
+      - rideverse-net
+    volumes:
+      - ./user-service:/usr/src/app
+      - /usr/src/app/node_modules
+
+  support-service:
+    build:
+      context: ./support-service
+      dockerfile: Dockerfile
+    container_name: support-service
+    ports:
+      - "3007:3007"
+    environment:
+      SUPPORT_SERVICE_MONGODB_URI: mongodb://mongo:27017/support_service
+      NOTIFICATION_SERVICE_URL: http://notification-service:3002
+      KAFKA_BROKERS: kafka:9092
+      SUPPORT_SERVICE_PORT: 3007
+      NODE_OPTIONS: --experimental-modules
+    depends_on:
+      - mongo
+      - kafka
+    networks:
+      - rideverse-net
+    volumes:
+      - ./support-service:/usr/src/app
+      - /usr/src/app/node_modules
+
+  admin-service:
+    build:
+      context: ./admin-service
+      dockerfile: Dockerfile
+    container_name: admin-service
+    ports:
+      - "3009:3009"
+    environment:
+      ADMIN_SERVICE_MONGODB_URI: mongodb://mongo:27017/admin_service
+      RIDE_SERVICE_URL: http://ride-service:3000
+      DRIVER_SERVICE_URL: http://driver-service:3001
+      USER_SERVICE_URL: http://user-service:3006
+      PAYMENT_SERVICE_URL: http://payment-service:3004
+      SUPPORT_SERVICE_URL: http://support-service:3007
+      NOTIFICATION_SERVICE_URL: http://notification-service:3002
+      KAFKA_BROKERS: kafka:9092
+      ADMIN_SERVICE_PORT: 3009
+      JWT_SECRET: YourSuperSecretKeyForJWT
+      ADMIN_DEFAULT_USER: admin
+      ADMIN_DEFAULT_PASSWORD: password
+      NODE_OPTIONS: --experimental-modules
+    depends_on:
+      - mongo
+      - kafka
+    networks:
+      - rideverse-net
+    volumes:
+      - ./admin-service:/usr/src/app
+      - /usr/src/app/node_modules
+
+  admin-portal:
+    build:
+      context: ./admin-portal
+      dockerfile: Dockerfile
+    container_name: admin-portal
+    ports:
+      - "5173:5173"
+    environment:
+      #VITE_ADMIN_SERVICE_URL: http://localhost:3009
+      REACT_APP_ADMIN_SERVICE_URL: http://admin-service:3009
+      PORT: 5173
+    depends_on:
+      - admin-service
+    networks:
+      - rideverse-net
+    volumes:
+      - ./admin-portal:/app
+      #- /app/node_modules
 
 networks:
   rideverse-net:

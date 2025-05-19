@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 const { connectRedis, getRedisClient } = require('./redisClient');
 const { connectKafkaProducer, getKafkaProducer, connectKafkaConsumer, setupDriverServiceConsumer } = require('./kafkaClient');
 const Driver = require('./models/Driver');
@@ -8,6 +9,11 @@ const { getFetch } = require('./fetchHelper');
 
 const app = express();
 app.use(express.json());
+app.use(cors({
+  origin: 'http://82.29.164.244:5173', // Allow requests from your frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+}));
 
 const MONGODB_URI = process.env.DRIVER_SERVICE_MONGODB_URI || 'mongodb://localhost:27017/driver_service';
 const RIDE_SERVICE_URL = process.env.RIDE_SERVICE_URL || 'http://localhost:3000';
@@ -370,6 +376,61 @@ app.get('/drivers/:driverId', async (req, res) => {
     }
 });
 
+// Get All Drivers with Pagination and Search
+app.get('/drivers', async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+        } = req.query;
+
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        const skip = (pageNum - 1) * limitNum;
+
+        // Build search query
+        const searchQuery = search
+            ? {
+                  $or: [
+                      { name: { $regex: search, $options: 'i' } },
+                      { email: { $regex: search, $options: 'i' } },
+                      { phone: { $regex: search, $options: 'i' } },
+                      { 'vehicle.licensePlate': { $regex: search, $options: 'i' } },
+                  ],
+              }
+            : {};
+
+        // Build sort query
+        const sortQuery = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+
+        // Fetch drivers with pagination and search
+        const drivers = await Driver.find(searchQuery)
+            .sort(sortQuery)
+            .skip(skip)
+            .limit(limitNum)
+            .select('name email phone vehicle rating currentStatus isOnline lastKnownLocation createdAt');
+
+        // Get total count for pagination
+        const total = await Driver.countDocuments(searchQuery);
+
+        res.status(200).json({
+            drivers,
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limitNum),
+                currentPage: pageNum,
+                limit: limitNum,
+            },
+        });
+    } catch (error) {
+        logError(SERVICE_NAME, error, 'GET /drivers');
+        res.status(500).json({ message: 'Failed to fetch drivers', error: error.message });
+    }
+});
+
 // Add a new driver (for testing/setup)
 app.post('/drivers', async (req, res) => {
     try {
@@ -381,6 +442,7 @@ app.post('/drivers', async (req, res) => {
         res.status(400).json({ message: "Failed to create driver", error: error.message });
     }
 });
+
 
 
 // --- Kafka Publishing Helper ---
