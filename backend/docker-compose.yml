@@ -148,7 +148,7 @@ services:
       - rideverse-net
     volumes:
       - ./ride-service:/usr/src/app
-      - /usr/src/app/node_modules
+      
 
   driver-service:
     build:

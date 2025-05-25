@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { toast } from "react-toastify"
 import { ArrowLeft, MessageSquare, User, Clock, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Send } from 'lucide-react'
-import { fetchTicketDetails, updateTicketStatus, addTicketReply } from "../services/api"
+import { fetchTicketDetails, updateTicketStatus, addTicketReply, fetchUserDetails, fetchDriverDetails } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 
 const TicketDetails = () => {
@@ -10,7 +10,9 @@ const TicketDetails = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [ticket, setTicket] = useState(null)
+  const [userDetails, setUserDetails] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [userLoading, setUserLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [replyText, setReplyText] = useState("")
   const [submittingReply, setSubmittingReply] = useState(false)
@@ -21,6 +23,28 @@ const TicketDetails = () => {
         setLoading(true)
         const ticketData = await fetchTicketDetails(ticketId)
         setTicket(ticketData)
+
+        // Fetch user details based on user type
+        if (ticketData.userId) {
+          setUserLoading(true)
+          try {
+            let userData
+            if (ticketData.user?.type === "driver" || ticketData.role === "driver") {
+              userData = await fetchDriverDetails(ticketData.userId)
+            } else {
+              userData = await fetchUserDetails(ticketData.userId)
+            }
+            setUserDetails(userData.data)
+          } catch (error) {
+            console.error("Failed to fetch user details:", error)
+            toast.error("Failed to load user details.")
+            setUserDetails(null)
+          } finally {
+            setUserLoading(false)
+          }
+        } else {
+          setUserLoading(false)
+        }
       } catch (error) {
         console.error("Failed to fetch ticket details:", error)
         toast.error("Failed to load ticket details. Please try again.")
@@ -303,22 +327,22 @@ const TicketDetails = () => {
               {/* Original message */}
               <div className="flex mb-6">
                 <div className="flex-shrink-0 mr-4">
-                  {ticket.user?.profileImage ? (
+                  {userDetails?.profileImage ? (
                     <img
-                      src={ticket.user.profileImage || "/placeholder.svg"}
-                      alt={ticket.user.name}
+                      src={userDetails.profileImage || "/placeholder.svg"}
+                      alt={userDetails.name}
                       className="h-10 w-10 rounded-full"
                     />
                   ) : (
                     <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                      {ticket.user?.name?.charAt(0).toUpperCase() || "U"}
+                      {userDetails?.name?.charAt(0).toUpperCase() || "U"}
                     </div>
                   )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center mb-1">
                     <h4 className="text-sm font-medium text-gray-900">
-                      {ticket.user?.name || "User"}
+                      {userDetails?.name || "User"}
                     </h4>
                     <span className="ml-2 text-xs text-gray-500">
                       {new Date(ticket.createdAt).toLocaleString()}
@@ -340,14 +364,14 @@ const TicketDetails = () => {
                       </div>
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                        {ticket.user?.name?.charAt(0).toUpperCase() || "U"}
+                        {userDetails?.name?.charAt(0).toUpperCase() || "U"}
                       </div>
                     )}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center mb-1">
                       <h4 className="text-sm font-medium text-gray-900">
-                        {reply.isAdminReply ? `${reply.adminName || "Admin"}` : ticket.user?.name || "User"}
+                        {reply.isAdminReply ? `${reply.adminName || "Admin"}` : userDetails?.name || "User"}
                       </h4>
                       <span className="ml-2 text-xs text-gray-500">
                         {new Date(reply.createdAt).toLocaleString()}
@@ -460,65 +484,81 @@ const TicketDetails = () => {
               <h3 className="text-lg font-medium text-gray-900">User Information</h3>
             </div>
             <div className="p-6">
-              <div className="flex items-center mb-4">
-                {ticket.user?.profileImage ? (
-                  <img
-                    src={ticket.user.profileImage || "/placeholder.svg"}
-                    alt={ticket.user.name}
-                    className="h-10 w-10 rounded-full mr-3"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
-                    {ticket.user?.name?.charAt(0).toUpperCase() || "U"}
+              {userLoading ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-10 w-10 rounded-full bg-gray-200"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ) : userDetails ? (
+                <div>
+                  <div className="flex items-center mb-4">
+                    {userDetails.profileImage ? (
+                      <img
+                        src={userDetails.profileImage}
+                        alt={userDetails.name}
+                        className="h-10 w-10 rounded-full mr-3"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+                        {userDetails.name?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">
+                        {userDetails.name || "Unknown User"}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {userDetails.email || "No email provided"}
+                      </p>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">
-                    {ticket.user?.name || "Unknown User"}
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    {ticket.user?.email || "No email provided"}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <div className="text-sm font-medium text-gray-500">User ID</div>
-                  <div className="mt-1 text-sm text-gray-900">{ticket.userId || "N/A"}</div>
-                </div>
-                
-                <div>
-                  <div className="text-sm font-medium text-gray-500">Phone</div>
-                  <div className="mt-1 text-sm text-gray-900">{ticket.user?.phone || "Not provided"}</div>
-                </div>
-                
-                <div>
-                  <div className="text-sm font-medium text-gray-500">Account Type</div>
-                  <div className="mt-1 text-sm text-gray-900">
-                    {ticket.user?.type === "driver" ? "Driver" : "Rider"}
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">User ID</div>
+                      <div className="mt-1 text-sm text-gray-900">{ticket.userId || "N/A"}</div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">Phone</div>
+                      <div className="mt-1 text-sm text-gray-900">{userDetails.phone || "Not provided"}</div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">Account Type</div>
+                      <div className="mt-1 text-sm text-gray-900">
+                        {userDetails.role === "driver" ? "Driver" : "Rider"}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium text-gray-500">Member Since</div>
+                      <div className="mt-1 text-sm text-gray-900">
+                        {userDetails.createdAt 
+                          ? new Date(userDetails.createdAt).toLocaleDateString() 
+                          : "Unknown"}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <Link
+                      to={`/users/${ticket.userId}`}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      View User Profile
+                    </Link>
                   </div>
                 </div>
-                
-                <div>
-                  <div className="text-sm font-medium text-gray-500">Member Since</div>
-                  <div className="mt-1 text-sm text-gray-900">
-                    {ticket.user?.createdAt 
-                      ? new Date(ticket.user.createdAt).toLocaleDateString() 
-                      : "Unknown"}
-                  </div>
+              ) : (
+                <div className="text-sm text-gray-600">
+                  Unable to load user details.
                 </div>
-              </div>
-              
-              <div className="mt-4">
-                <Link
-                  to={`/users/${ticket.userId}`}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  View User Profile
-                </Link>
-              </div>
+              )}
             </div>
           </div>
           

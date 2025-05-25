@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "react-toastify"
 import { ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react"
-import { fetchSupportTickets } from "../services/api"
+import { fetchSupportTickets, fetchUserDetails } from "../services/api"
 
 const SupportTickets = () => {
   const [tickets, setTickets] = useState([])
@@ -31,7 +31,34 @@ const SupportTickets = () => {
           sortOrder,
         })
 
-        setTickets(response.data)
+        // Fetch user details for each ticket
+        const ticketsWithUserDetails = await Promise.all(
+          response.data.map(async (ticket) => {
+            try {
+              const userDetails = await fetchUserDetails(ticket.userId)
+              return {
+                ...ticket,
+                user: {
+                  name: userDetails.data.name || "Unknown",
+                  email: userDetails.data.email || "No email",
+                  profileImage: userDetails.data.profileImage
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to fetch user details for userId ${ticket.userId}:`, error)
+              return {
+                ...ticket,
+                user: {
+                  name: "Unknown",
+                  email: "No email",
+                  profileImage: null
+                }
+              }
+            }
+          })
+        )
+
+        setTickets(ticketsWithUserDetails)
         setTotalPages(response.totalPages)
       } catch (error) {
         console.error("Failed to fetch support tickets:", error)
@@ -245,13 +272,13 @@ const SupportTickets = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {tickets.map((ticket) => (
+                {tickets.map((ticket, index) => (
                   <tr key={ticket._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{ticket.ticketNumber}
+                      #{index+1}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      <div className="max-w-xs truncate">{ticket.subject}</div>
+                      <div className="max-w-xs truncate">{ticket.issueType}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

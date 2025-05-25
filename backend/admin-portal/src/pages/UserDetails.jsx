@@ -34,12 +34,12 @@ const UserDetails = () => {
   const fetchUserDetails = async () => {
     try {
       setLoading(true)
-      const userResponse = await api.getUser(userId)
+      const userResponse = await api.fetchUserDetails(userId)
       setUser(userResponse.data)
 
       // Fetch related data
       try {
-        const ridesResponse = await api.getRides({ userId, limit: 5 })
+        const ridesResponse = await api.fetchRides({ userId, limit: 5 })
         setRides(ridesResponse.data.rides || ridesResponse.data || [])
       } catch (error) {
         console.error("Error fetching rides:", error)

@@ -28,7 +28,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const response = await api.getUsers({
+      const response = await api.fetchUsers({
         ...filters,
         page: pagination.page,
         limit: pagination.limit,

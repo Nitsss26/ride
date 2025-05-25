@@ -8,15 +8,43 @@ const locationSchema = new mongoose.Schema({
     default: 'Point'
   },
   coordinates: {
-    type: [Number], // [longitude, latitude]
+    type: [Number],
     required: true
   },
   timestamp: {
-     type: Date,
-     default: Date.now
+    type: Date,
+    default: Date.now
   }
 }, { _id: false });
 
+const documentSchema = new mongoose.Schema({
+  url: {
+    type: String,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  },
+  rejectionReason: {
+    type: String,
+    default: null
+  }
+}, { _id: false });
+
+const vehicleSchema = new mongoose.Schema({
+  make: { type: String, required: true },
+  model: { type: String, required: true },
+  year: { type: String }, // Optional, as per DriverApp.js
+  color: { type: String, required: true },
+  licensePlate: { type: String, required: true, unique: true },
+  type: { type: String, required: true, enum: ['Sedan', 'SUV', 'Hatchback', 'Luxury'] }
+}, { _id: false });
 
 const driverSchema = new mongoose.Schema({
   name: {
@@ -24,15 +52,15 @@ const driverSchema = new mongoose.Schema({
     required: true,
   },
   phone: {
-     type: String,
-     required: true,
-     unique: true
+    type: String,
+    required: true,
+    unique: true
   },
   email: {
-     type: String,
-     required: true,
-     unique: true
-   },
+    type: String,
+    required: true,
+    unique: true
+  },
   isOnline: {
     type: Boolean,
     default: false,
@@ -45,25 +73,21 @@ const driverSchema = new mongoose.Schema({
   lastKnownLocation: locationSchema,
   rating: {
     type: Number,
-    default: 4.5, // Default rating
+    default: 4.5,
     min: 1,
     max: 5
   },
-  vehicle: {
-    make: String,
-    model: String,
-    licensePlate: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    color: String,
-    type: String // e.g., 'Sedan', 'SUV', 'Bike'
+  vehicle: vehicleSchema,
+  documents: {
+    license: documentSchema,
+    insurance: documentSchema,
+    registration: documentSchema,
+    profile: documentSchema
   },
-  currentRideId: { // Track the ID of the ride the driver is currently on/assigned to
-     type: String,
-     ref: 'Ride', // Reference Ride model (conceptually, not a hard link)
-     default: null
+  currentRideId: {
+    type: String,
+    ref: 'Ride',
+    default: null
   },
   createdAt: {
     type: Date,
@@ -75,34 +99,19 @@ const driverSchema = new mongoose.Schema({
   },
 });
 
-// Index for location queries if needed directly on this model (though Redis is primary)
-// driverSchema.index({ lastKnownLocation: '2dsphere' });
-
-// Index for faster lookups by status and online state
 driverSchema.index({ isOnline: 1, currentStatus: 1 });
 
-
-// Update `updatedAt` timestamp on save
 driverSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   if (this.isModified('lastKnownLocation')) {
-      this.lastKnownLocation.timestamp = Date.now();
+    this.lastKnownLocation.timestamp = Date.now();
   }
   next();
 });
 
-// Update `updatedAt` timestamp on updates
 driverSchema.pre('findOneAndUpdate', function(next) {
   this.set({ updatedAt: Date.now() });
-  // If updating location directly via findOneAndUpdate (less common with LocationService)
-  // const update = this.getUpdate();
-  // if (update.$set && update.$set.lastKnownLocation) {
-  //    update.$set['lastKnownLocation.timestamp'] = Date.now();
-  // } else if (update.lastKnownLocation) {
-  //    this.set({ 'lastKnownLocation.timestamp': Date.now() });
-  // }
   next();
 });
-
 
 module.exports = mongoose.model('Driver', driverSchema);

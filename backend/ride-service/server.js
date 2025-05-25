@@ -5,9 +5,27 @@ const { connectRedis, getRedisClient } = require('./redisClient');
 const { connectKafkaProducer, getKafkaProducer, connectKafkaConsumer, setupRideServiceConsumer } = require('./kafkaClient');
 const Ride = require('./models/Ride');
 const { getFetch } = require('./fetchHelper');
+const cors = require('cors');
 
 const app = express();
+
 app.use(express.json());
+
+
+
+app.use(cors({
+  origin: 'http://82.29.164.244:5173', // Allow requests from your frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+}));
+
+
+
+
+
+
+
+
 
 const MONGODB_URI = process.env.RIDE_SERVICE_MONGODB_URI || 'mongodb://localhost:27017/ride_service';
 const DRIVER_SERVICE_URL = process.env.DRIVER_SERVICE_URL || 'http://localhost:3001';
@@ -113,6 +131,50 @@ app.post('/rides', async (req, res) => {
         res.status(500).json({ message: 'Failed to request ride' });
     }
 });
+
+
+
+
+
+// Get all rides with optional pagination
+app.get('/rides', async (req, res) => {
+    try {
+        // Extract pagination parameters from query
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        
+        // Count total documents for pagination
+        const totalCount = await Ride.countDocuments();
+        const totalPages = Math.ceil(totalCount / limit);
+        
+        // Get rides with pagination
+        const rides = await Ride.find()
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 }); // Sort by most recent first
+        
+        // Format response to match frontend expectations
+        const response = {
+            rides: rides,
+            pagination: {
+                total: totalCount,
+                totalPages: totalPages,
+                currentPage: page,
+                limit: limit
+            }
+        };
+        
+        res.json(response);
+    } catch (error) {
+        console.error('Error fetching rides:', error);
+        res.status(500).json({ message: 'Failed to fetch rides' });
+    }
+});
+
+
+
+
 
 // Get ride status
 app.get('/rides/:rideId', async (req, res) => {

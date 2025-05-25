@@ -31,7 +31,7 @@ const Rides = () => {
   const fetchRides = async () => {
     try {
       setLoading(true)
-      const response = await api.getRides({
+      const response = await api.fetchRides({
         ...filters,
         page: pagination.page,
         limit: pagination.limit,

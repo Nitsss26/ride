@@ -80,7 +80,7 @@ export const logout = async () => {
 export const fetchUsers = async (params = {}) => {
   try {
     const response = await userService.get("/users", { params })
-    return response.data
+    return response
   } catch (error) {
     throw error
   }
@@ -89,7 +89,7 @@ export const fetchUsers = async (params = {}) => {
 export const fetchUserDetails = async (userId) => {
   try {
     const response = await userService.get(`/users/${userId}`)
-    return response.data
+    return response
   } catch (error) {
     throw error
   }
@@ -98,7 +98,7 @@ export const fetchUserDetails = async (userId) => {
 export const updateUserStatus = async (userId, status) => {
   try {
     const response = await userService.put(`/users/${userId}/status`, { status })
-    return response.data
+    return response
   } catch (error) {
     throw error
   }
@@ -229,7 +229,7 @@ export const fetchTicketDetails = async (ticketId) => {
 
 export const updateTicketStatus = async (ticketId, status) => {
   try {
-    const response = await supportService.put(`/tickets/${ticketId}/status`, { status })
+    const response = await supportService.put(`/tickets/${ticketId}`, { status })
     return response.data
   } catch (error) {
     throw error
@@ -238,7 +238,7 @@ export const updateTicketStatus = async (ticketId, status) => {
 
 export const addTicketReply = async (ticketId, replyData) => {
   try {
-    const response = await supportService.post(`/tickets/${ticketId}/replies`, replyData)
+    const response = await supportService.post(`/tickets/${ticketId}/responses`, replyData)
     return response.data
   } catch (error) {
     throw error

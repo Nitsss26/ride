@@ -31,24 +31,24 @@ const RideDetails = () => {
   const fetchRideDetails = async () => {
     try {
       setLoading(true)
-      const rideResponse = await api.getRide(rideId)
-      setRide(rideResponse.data)
+      const rideResponse = await api.fetchRideDetails(rideId)
+      setRide(rideResponse)
 
       // Fetch rider details
-      if (rideResponse.data.riderId) {
+      if (rideResponse.riderId) {
         try {
-          const riderResponse = await api.getUser(rideResponse.data.riderId)
-          setRider(riderResponse.data)
+          const riderResponse = await api.fetchUserDetails(rideResponse.data.riderId)
+          setRider(riderResponse)
         } catch (error) {
           console.error("Error fetching rider details:", error)
         }
       }
 
       // Fetch driver details
-      if (rideResponse.data.driverId) {
+      if (rideResponse.driverId) {
         try {
-          const driverResponse = await api.getUser(rideResponse.data.driverId)
-          setDriver(driverResponse.data)
+          const driverResponse = await api.fetchDriverDetails(rideResponse.data.driverId)
+          setDriver(driverResponse)
         } catch (error) {
           console.error("Error fetching driver details:", error)
         }

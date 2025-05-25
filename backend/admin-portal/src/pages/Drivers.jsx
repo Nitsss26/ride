@@ -1,7 +1,9 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "react-toastify"
-import { ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { fetchDrivers } from "../services/api"
 
 const Drivers = () => {
@@ -13,25 +15,53 @@ const Drivers = () => {
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortBy, setSortBy] = useState("createdAt")
   const [sortOrder, setSortOrder] = useState("desc")
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const loadDrivers = async () => {
       try {
         setLoading(true)
+        setError(null)
         const response = await fetchDrivers({
           page,
           limit: 10,
           search: searchTerm,
           status: statusFilter !== "all" ? statusFilter : undefined,
           sortBy,
-          sortOrder
+          sortOrder,
         })
-        
-        setDrivers(response.data)
+
+        // Map the response data to handle vehicle JSON string and status
+        const mappedDrivers = response.data.map(driver => {
+          let vehicleData = {}
+          try {
+            vehicleData = typeof driver.vehicle === "string" ? JSON.parse(driver.vehicle) : driver.vehicle || {}
+          } catch (error) {
+            console.error(`Failed to parse vehicle data for driver ${driver._id}:`, error)
+            vehicleData = {}
+          }
+
+          // Determine status based on isOnline and currentStatus
+          let uiStatus = "unknown"
+          if (driver.isOnline) {
+            uiStatus = driver.currentStatus || "available"
+          } else {
+            uiStatus = "offline"
+          }
+
+          return {
+            ...driver,
+            vehicle: vehicleData,
+            status: uiStatus,
+          }
+        })
+
+        setDrivers(mappedDrivers)
         setTotalPages(response.totalPages)
       } catch (error) {
         console.error("Failed to fetch drivers:", error)
-        toast.error("Failed to load drivers. Please try again.")
+        setError(error.message || "Failed to load drivers. Please try again.")
+        toast.error(error.message || "Failed to load drivers. Please try again.")
       } finally {
         setLoading(false)
       }
@@ -47,31 +77,59 @@ const Drivers = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case "active":
+      case "available":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle className="w-3 h-3 mr-1" />
-            Active
+            Available
           </span>
         )
-      case "inactive":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            <XCircle className="w-3 h-3 mr-1" />
-            Inactive
-          </span>
-        )
-      case "pending":
+      case "busy":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <AlertTriangle className="w-3 h-3 mr-1" />
-            Pending
+            Busy
+          </span>
+        )
+      case "offline":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
+            Offline
+          </span>
+        )
+      case "en_route_pickup":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            En Route
+          </span>
+        )
+      case "at_pickup":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            At Pickup
+          </span>
+        )
+      case "on_ride":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            On Ride
+          </span>
+        )
+      case "driver_arrived":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Arrived
           </span>
         )
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            {status}
+            Unknown
           </span>
         )
     }
@@ -115,9 +173,13 @@ const Drivers = () => {
               }}
             >
               <option value="all">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
+              <option value="available">Available</option>
+              <option value="busy">Busy</option>
+              <option value="offline">Offline</option>
+              <option value="en_route_pickup">En Route</option>
+              <option value="at_pickup">At Pickup</option>
+              <option value="on_ride">On Ride</option>
+              <option value="driver_arrived">Arrived</option>
             </select>
             <Filter className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           </div>
@@ -144,6 +206,69 @@ const Drivers = () => {
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">
+          {error}
+          <button
+            onClick={() => {
+              setError(null)
+              setLoading(true)
+              const loadDrivers = async () => {
+                try {
+                  setLoading(true)
+                  setError(null)
+                  const response = await fetchDrivers({
+                    page,
+                    limit: 10,
+                    search: searchTerm,
+                    status: statusFilter !== "all" ? statusFilter : undefined,
+                    sortBy,
+                    sortOrder,
+                  })
+
+                  const mappedDrivers = response.data.map(driver => {
+                    let vehicleData = {}
+                    try {
+                      vehicleData = typeof driver.vehicle === "string" ? JSON.parse(driver.vehicle) : driver.vehicle || {}
+                    } catch (error) {
+                      console.error(`Failed to parse vehicle data for driver ${driver._id}:`, error)
+                      vehicleData = {}
+                    }
+
+                    let uiStatus = "unknown"
+                    if (driver.isOnline) {
+                      uiStatus = driver.currentStatus || "available"
+                    } else {
+                      uiStatus = "offline"
+                    }
+
+                    return {
+                      ...driver,
+                      vehicle: vehicleData,
+                      status: uiStatus,
+                    }
+                  })
+
+                  setDrivers(mappedDrivers)
+                  setTotalPages(response.totalPages)
+                } catch (error) {
+                  console.error("Failed to fetch drivers:", error)
+                  setError(error.message || "Failed to load drivers. Please try again.")
+                  toast.error(error.message || "Failed to load drivers. Please try again.")
+                } finally {
+                  setLoading(false)
+                }
+              }
+              loadDrivers()
+            }}
+            className="ml-2 underline hover:text-red-900"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Drivers Table */}
       <div className="bg-white shadow overflow-hidden rounded-lg">
         {loading ? (
@@ -162,6 +287,9 @@ const Drivers = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Driver
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Phone
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vehicle
@@ -204,18 +332,22 @@ const Drivers = () => {
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{driver.name}</div>
                           <div className="text-sm text-gray-500">{driver.email}</div>
-                          <div className="text-sm text-gray-500">{driver.phone}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{driver.vehicle?.make} {driver.vehicle?.model}</div>
-                      <div className="text-sm text-gray-500">{driver.vehicle?.year} • {driver.vehicle?.color}</div>
-                      <div className="text-sm text-gray-500">{driver.vehicle?.licensePlate}</div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {driver.phone || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(driver.status)}
+                      {driver.vehicle && Object.keys(driver.vehicle).length > 0 ? (
+                        <div className="text-sm text-gray-900">
+                          {driver.vehicle.make || "N/A"} ({driver.vehicle.type || "N/A"})
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">No vehicle info</div>
+                      )}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(driver.status)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span className="text-sm font-medium text-gray-900 mr-1">
@@ -227,21 +359,14 @@ const Drivers = () => {
                           </svg>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {driver.ratingCount || 0} ratings
-                      </div>
+                      <div className="text-xs text-gray-500">{driver.ratingCount || 0} ratings</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {driver.totalRides || 0}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{driver.totalRides || 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(driver.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/drivers/${driver._id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
+                      <Link to={`/drivers/${driver._id}`} className="text-blue-600 hover:text-blue-900">
                         View Details
                       </Link>
                     </td>
@@ -292,15 +417,13 @@ const Drivers = () => {
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
                     className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                      page === 1
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-500 hover:bg-gray-50"
+                      page === 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-50"
                     }`}
                   >
                     <span className="sr-only">Previous</span>
                     <ChevronLeft className="h-5 w-5" />
                   </button>
-                  
+
                   {/* Page numbers */}
                   {[...Array(totalPages).keys()].map((pageNum) => {
                     const pageNumber = pageNum + 1
@@ -324,12 +447,9 @@ const Drivers = () => {
                         </button>
                       )
                     }
-                    
+
                     // Show ellipsis for gaps
-                    if (
-                      (pageNumber === 2 && page > 3) ||
-                      (pageNumber === totalPages - 1 && page < totalPages - 2)
-                    ) {
+                    if ((pageNumber === 2 && page > 3) || (pageNumber === totalPages - 1 && page < totalPages - 2)) {
                       return (
                         <span
                           key={pageNumber}
@@ -339,17 +459,15 @@ const Drivers = () => {
                         </span>
                       )
                     }
-                    
+
                     return null
                   })}
-                  
+
                   <button
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
                     className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                      page === totalPages
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-500 hover:bg-gray-50"
+                      page === totalPages ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-50"
                     }`}
                   >
                     <span className="sr-only">Next</span>
